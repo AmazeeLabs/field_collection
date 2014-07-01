@@ -1021,8 +1021,16 @@ function field_collection_field_delete($entity_type, $entity, $field, $instance,
 function field_collection_field_delete_revision($entity_type, $entity, $field, $instance, $langcode, &$items) {
   foreach ($items as $item) {
     if (!empty($item['revision_id'])) {
-      if ($entity = field_collection_item_revision_load($item['revision_id'])) {
-        $entity->deleteRevision(TRUE);
+      if ($field_entity = field_collection_item_revision_load($item['revision_id'])) {
+        // We make a call to setHostEntity() so that we have a host entity
+        // attached to the field collection, because loading the entity in
+        // deleteRevision() will fail (the revision of the node is already
+        // deleted). See also: https://www.drupal.org/node/2000690.
+        // Also, we have to fake the entity as being new, otherwise the
+        // setHostEntity() call will fail.
+        $field_entity->is_new = TRUE;
+        $field_entity->setHostEntity($entity_type, $entity);
+        $field_entity->deleteRevision(TRUE);
       }
     }
   }
