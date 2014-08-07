@@ -927,6 +927,30 @@ function field_collection_field_presave($host_entity_type, $host_entity, $field,
             $entity->archived = FALSE;
           }
         }
+        // We had an issue that the file module deleted the files of the
+        // original entity when it gets updated. This works wrong here,
+        // because the problem is that the original attribute of the entity
+        // will be set by the entity_load_unchanged() call in the
+        // EntityApiController:save() to be exactly the draft we are saving.
+        // This results in the image (or files) of the new draft being
+        // deleted.
+        // To solve this, we set here the original to the current entity
+        // because the file_field_update() will not delete any files
+        // referenced by the entity being updated.
+        // And we also clone the original so that the field_attach_update()
+        // call in EntityApiController:save() will receive also an object with
+        // an already 'original' attribute.
+        // What is a bit strange is that it happens only when saving a node that
+        // is already a Draft. So, from 'Published' to 'Draft' it works (and
+        // this is because the change in field_collection_wbm_workbench_moderation_transition() ),
+        // but from 'Draft' to 'Draft' we have this issue that is solved with
+        // populating the 'original' attribute (so we should maybe check this
+        // more).
+        // Issue appeared in http://jira.amazeelabs.com/browse/SOWEB-758.
+        if (empty($entity->is_new)) {
+          $entity->original = entity_load_unchanged('field_collection_item', $entity->item_id);
+          $entity->original->original = clone $entity->original;
+        }
         $entity->save(TRUE);
 
         $item = array(
